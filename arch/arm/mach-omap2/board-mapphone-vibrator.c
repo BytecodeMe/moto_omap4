@@ -142,6 +142,25 @@ struct vibrator vibrators[MAX_VIBS]; /* dev_data */
 struct vib_timed vib_timeds[MAX_VIBS]; /* pdata */
 const char *vib_name[MAX_VIBS] = {"vibrator", "vibrator1"};
 
+#ifdef CONFIG_VIBRATOR_CONTROL
+static DEFINE_MUTEX(vib_enabled);
+
+extern void vibratorcontrol_register_vibstrength(int vibstrength);
+
+void vibratorcontrol_update(int vibstrength)
+{
+    mutex_lock(&vib_enabled);
+
+    omap_dm_timer_set_load(dmtimer, 1, -vibstrength);
+    omap_dm_timer_set_match(dmtimer, 1, -vibstrength+20);
+
+    mutex_unlock(&vib_enabled);
+
+    return;
+}
+EXPORT_SYMBOL(vibratorcontrol_update);
+#endif
+
 static void vib_signal_print(struct vib_signal *vibs)
 {
 	struct vib_of_signal *of = &vibs->of;
@@ -516,6 +535,11 @@ static int vibrator_regulator_enable(struct vibrator *vib, int value_ms)
 		ret = regulator_enable(vib->reg.regulator);
 		dvib_tprint("r+ %d\n", ret);
 		vib->reg.enabled = 1;
+
+#ifdef CONFIG_VIBRATOR_CONTROL
+		mutex_lock(&vib_enabled);
+#endif
+
 	}
 	mutex_unlock(&vib->reg.lock);
 	return ret;
@@ -675,6 +699,10 @@ static int vibrator_power_off(void *data)
 	vib_signal_deactivate(&vib->ctrl.vib_en);
 	vib_signal_deactivate(&vib->ctrl.vib_dir);
 	vibrator_regulator_disable(vib);
+
+#ifdef CONFIG_VIBRATOR_CONTROL
+  	mutex_unlock(&vib_enabled);
+#endif 
 	wake_unlock(&vib->wakelock);
 	return 0;
 }
@@ -869,4 +897,7 @@ void __init mapphone_vibrator_init(void)
 		vib_timed_pdata.count = count;
 		platform_device_register(&vib_timed_dev);
 	}
+#ifdef CONFIG_VIBRATOR_CONTROL
+vibratorcontrol_register_vibstrength(PWM_DUTY_MAX);
+#endif
 }
