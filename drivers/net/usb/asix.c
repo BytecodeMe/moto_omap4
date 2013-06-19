@@ -125,9 +125,25 @@ static int ax8817x_set_mac_addr (struct net_device *net, void *p)
 }
 static int asix_enable_open(struct inode *ip, struct file *fp)
 {
-        /* Empty Function For Now */
-        return 0;
-}
+	u8  *head;
+	u32  header;
+	char *packet;
+	struct sk_buff *ax_skb;
+	u16 size;
+
+	head = (u8 *) skb->data;
+	memcpy(&header, head, sizeof(header));
+	le32_to_cpus(&header);
+	packet = head + sizeof(header);
+
+	skb_pull(skb, 4);
+
+	while (skb->len > 0) {
+		if ((header & 0x07ff) != ((~header >> 16) & 0x07ff))
+			netdev_err(dev->net, "asix_rx_fixup() Bad Header Length\n");
+
+		/* get the packet length */
+		size = (u16) (header & 0x000007ff);
 
 static int asix_enable_release(struct inode *ip, struct file *fp)
 {
